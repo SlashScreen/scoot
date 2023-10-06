@@ -1,0 +1,26 @@
+fn function (var:int) {
+
+}
+
+loop true {
+
+}
+
+branch {
+    x == y {
+
+    }
+    _ {
+
+    }
+}
+
+branch x == y {
+
+}
+
+type Type {
+    foo := 0
+    bar : u16 = 3
+    constant :: u8 = 4
+}
