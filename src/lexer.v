@@ -270,3 +270,7 @@ pub mut:
 	context string
 	tag Symbol
 }
+
+fn (t Token) format_start() string {
+	return ""
+}
