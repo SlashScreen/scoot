@@ -73,7 +73,7 @@ fn (mut p Parser) consume_number() !&Node {
 
 	p.consume_token(.num)!
 
-	n := IntDef{number: t.context.uint()}
+	n := IntDef{number: t.context.u16()}
 	p.ast.tree << &n
 	return &n
 }
@@ -93,8 +93,9 @@ fn (mut p Parser) consume_expression() !&Node {
 		.num {
 			l := p.lookahead(0)!
 			if l.tag == .eol { return p.consume_number() } // TODO: Floats
+			else { return error("Unexpected token.") }
 		}
-		else { error("Unexpected token.") }
+		else { return error("Unexpected token.") }
 	}
 }
 
@@ -146,17 +147,40 @@ fn (mut p Parser) consume_assignment() !&Node {
 }
 
 fn (mut p Parser) consume_branch() !&Node {
-	p.consume_token(.key_branch)
-	conditions := [](&Node, &Node){}
+	p.consume_token(.key_branch)!
+	mut conditions := []ConditionBlock{}
+	mut e_block := ?Node(none)
 
 	if p.current()!.tag != .l_bracket {
 		e := p.consume_expression()!
 		b := p.consume_block()!
-		conditions << (e, b)
+		conditions << ConditionBlock{condition:e, block:b}
+	} else {
+		p.consume_token(.l_bracket)!
+		p.consume_token(.eol)!
+		for p.current()!.tag != .r_bracket {
+			match p.current()!.tag {
+				.key_else {
+					p.shift()
+					b := p.consume_block()!
+					e_block = ?Node(b)
+				}
+				else {
+					e := p.consume_expression()!
+					b := p.consume_block()!
+					conditions << ConditionBlock{condition:e, block:b}
+				}
+			}
+			
+		}
 	}
 
-	p.consume_token(.l_bracket)!
+	p.consume_token(.r_bracket)!
 	p.consume_token(.eol)!
+
+	n := Branch{conditions:conditions, else_block:e_block}
+	p.ast.tree << &n
+	return &n
 }
 
 fn (mut p Parser) consume_return() !&Node {

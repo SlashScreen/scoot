@@ -59,8 +59,14 @@ pub mut:
 
 struct Branch {
 pub mut:
-	conditions [](&Node, &Node)
+	conditions []ConditionBlock
 	else_block ?&Node
+}
+
+struct ConditionBlock {
+pub:
+	condition &Node
+	block &Node
 }
 
 struct Ret {
