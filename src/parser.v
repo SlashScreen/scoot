@@ -27,23 +27,27 @@ fn (p Parser) current() !Token {
 	}
 }
 
-fn (mut p Parser) parse() !Ast {
-	for p.pos < input.len {
-		t := p.current()!
-		match t.tag {
-			.ident {
-				l := p.lookahead()!
-				match l.tag {
-					.colon, .double_colon {}
-				}
-			}
-			else { return error("Unexpected token.") }
-		}
+fn is_symbol_operator(symbol Symbol) bool {
+	return match symbol {
+		.plus, .minus, .slash, .asterisk, .percent, .caret, .pipe, .ampersand, .or_or, .and_and, .bang { true }
+		else { false }
+	}
+}
 
+fn is_symbol_assignment(symbol Symbol) bool {
+	return match symbol {
+		.eq, .eqeq, .neq, .ast_eq, .sla_eq, .plu_eq, .min_eq, .and_eq, .or_eq, .xor_eq, .mod_eq, .leq, .geq { true }
+		else { false }
+	}
+}
+
+fn (mut p Parser) parse() !Ast {
+	for p.pos < p.input.len {
+		p.consume_toplevel()!
 		p.shift()
 	} 
 
-	return Ast
+	return p.ast
 }
 
 fn (mut p Parser) consume_token(tag Symbol) ! {
@@ -60,8 +64,134 @@ fn (mut p Parser) consume_ident() !&Node {
 	p.consume_token(.ident)!
 
 	n := IdentDef{name: t.context}
-	p.ast.tree << n
+	p.ast.tree << &n
 	return &n
+}
+
+fn (mut p Parser) consume_number() !&Node {
+	t := p.current()!
+
+	p.consume_token(.num)!
+
+	n := IntDef{number: t.context.uint()}
+	p.ast.tree << &n
+	return &n
+}
+
+// * EXPRESSIONS
+
+fn (mut p Parser) consume_expression() !&Node {
+	match p.current()!.tag {
+		.ident {
+			l := p.lookahead(0)!
+			if is_symbol_operator(l.tag) { return p.consume_algebraic() }
+			else if l.tag == .eol { return p.consume_ident() }
+			else {
+				return error("Unexpected token.")
+			}
+		}
+		.num {
+			l := p.lookahead(0)!
+			if l.tag == .eol { return p.consume_number() } // TODO: Floats
+		}
+		else { error("Unexpected token.") }
+	}
+}
+
+fn (mut p Parser) consume_algebraic() !&Node {
+	return error("Todo")
+}
+
+fn (mut p Parser) consume_func_call() !&Node {
+	return error("Todo")
+}
+
+// * STATEMENTS
+
+fn (mut p Parser) consume_statement() !&Node {
+	t := p.current()!
+	match t.tag {
+		.ident {
+			l := p.lookahead(0)!
+			if is_symbol_assignment(l.tag) { return p.consume_assignment() }
+			else {
+				match l.tag {
+					.colon, .double_colon { return p.consume_definition() }
+					else { return error ("Unexpected token.") }
+				}
+			}
+		}
+		.key_branch { return p.consume_branch() }
+		.key_type { return p.consume_return() }
+		else { return error("Unexpected token.") }
+	}
+}
+
+fn (mut p Parser) consume_block() !&Node {
+	p.consume_token(.l_bracket)!
+	p.consume_token(.eol)!
+	mut exprs := []&Node{}
+	for p.current()!.tag != .r_bracket {
+		if p.current()!.tag == .eol { continue }
+		exprs << p.consume_expression()!
+	}
+
+	n := Block{exprs: exprs}
+	p.ast.tree << &n
+	return &n
+}
+
+fn (mut p Parser) consume_assignment() !&Node {
+	return error("Todo")
+}
+
+fn (mut p Parser) consume_branch() !&Node {
+	p.consume_token(.key_branch)
+	conditions := [](&Node, &Node){}
+
+	if p.current()!.tag != .l_bracket {
+		e := p.consume_expression()!
+		b := p.consume_block()!
+		conditions << (e, b)
+	}
+
+	p.consume_token(.l_bracket)!
+	p.consume_token(.eol)!
+}
+
+fn (mut p Parser) consume_return() !&Node {
+	p.consume_token(.key_return)!
+	e := if p.current()!.tag != .eol {
+		?Node(p.consume_expression()!)
+	} else { ?Node(none) }
+
+	n := Ret{ value: e }
+	p.ast.tree << &n
+	return &n
+}
+
+// * TOPLEVEL
+
+fn (mut p Parser) consume_toplevel() !&Node {
+	t := p.current()!
+	match t.tag {
+		.ident {
+			match p.lookahead(0)!.tag {
+				.double_colon { return p.consume_definition() }
+				else { return error("Expected constant or function definition.") }
+			}
+		}
+		.key_type, .key_interface { return p.consume_type() }
+		else { return error("Unexpected symbols in top level.") }
+	}
+}
+
+fn (mut p Parser) consume_fn() !&Node {
+	return error("Todo")
+}
+
+fn (mut p Parser) consume_type() !&Node {
+	return error("Todo")
 }
 
 fn (mut p Parser) consume_definition() !&Node {
@@ -90,106 +220,8 @@ fn (mut p Parser) consume_var(constant bool) !&Node {
 		name: name
 		type_def: type_name
 		declaration: p.consume_expression()!
-		constant: constant
+		is_const: constant
 	}
-	p.ast.tree << n
+	p.ast.tree << &n
 	return &n
-}
-
-fn (mut p Parser) consume_fn() !&Node {
-	return error("Todo")
-}
-
-fn (mut p Parser) consume_expression() !&Node {
-	
-}
-
-fn (mut p Parser) consume_statement() !&Node {
-	t := p.current()!
-	return match t.tag {
-		.ident {
-			l := p.lookahead()!
-			match l.tag {
-				.colon, .double_colon { p.consume_definition()! }
-				else { error ("Unexpected token.") }
-			}
-		}
-		else { error("Unexpected token.") }
-	}
-}
-
-// * AST
-
-struct Ast {
-pub mut:
-	tree []&Node
-}
-
-type Node = VarDef | ConstDef | Expression
-
-type Expression = BinOp | UnOp | Literal | Block | Assignment
-
-type Literal = IdentDef | IntDef | FloatDef
-
-struct IdentDef {
-pub:
-	name string
-}
-
-struct IntDef {
-pub:
-	number usize
-}
-
-struct FloatDef {
-pub:
-	number f32
-}
-
-struct StringDef {
-pub:
-	str string
-}
-
-struct VarDef {
-pub:
-	name &Node
-	type_def &Node
-	declaration &Node
-	is_const bool
-}
-
-struct BinOp {
-pub:
-	lhs &Expression
-	rhs &Expression
-	op BinOperation
-}
-
-struct Assignment {
-	BinOp
-}
-
-struct UnOp {
-pub:
-	rhs &Expression
-	op UnOperation
-}
-
-struct Block {
-pub mut:
-	eprs []&Expression
-}
-
-enum BinOperation {
-	add subtract multiply divide mod // Arithmetic
-	and_op or_op eq neq leq geq // Comparison
-	bit_sft_l bit_sft_r bit_or bit_and bit_xor bit_not // Bitwise
-	assign plus_as min_as div_as mul_as mod_as // Assignment
-}
-
-enum UnOperation {
-	not
-	negate
-	pointer
 }
