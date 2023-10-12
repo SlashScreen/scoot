@@ -29,14 +29,14 @@ fn (p Parser) current() !Token {
 
 fn is_symbol_operator(symbol Symbol) bool {
 	return match symbol {
-		.plus, .minus, .slash, .asterisk, .percent, .caret, .pipe, .ampersand, .or_or, .and_and, .bang { true }
+		.plus, .minus, .slash, .asterisk, .percent, .caret, .pipe, .ampersand, .or_or, .and_and, .bang, .eqeq, .neq, .leq, .geq { true }
 		else { false }
 	}
 }
 
 fn is_symbol_assignment(symbol Symbol) bool {
 	return match symbol {
-		.eq, .eqeq, .neq, .ast_eq, .sla_eq, .plu_eq, .min_eq, .and_eq, .or_eq, .xor_eq, .mod_eq, .leq, .geq { true }
+		.eq, .ast_eq, .sla_eq, .plu_eq, .min_eq, .and_eq, .or_eq, .xor_eq, .mod_eq { true }
 		else { false }
 	}
 }

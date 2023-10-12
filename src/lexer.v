@@ -140,7 +140,40 @@ fn  (mut l Lexer) consume() !Token {
 					}
 				}
 			}
-			.bang, .eq, .asterisk, .slash, .plus, .minus, .mod, .caret, .l_ang, .r_ang {
+			.l_ang, .r_ang {
+				match c {
+					`=` {
+						r := match state {
+							.l_ang { ?Symbol( Symbol.leq ) }
+							.r_ang { ?Symbol( Symbol.geq ) }
+							else { none }
+						}
+						token.tag = r or { return error('Parsing bug - <>.') } 
+						l.shift()
+						break 
+					}
+					`<`, `>` {
+						r := match true {
+							state == .l_ang && c == `<` { ?Symbol( Symbol.shl ) }
+							state == .r_ang && c == `>` { ?Symbol( Symbol.shr ) }
+							else { none }
+						}
+						token.tag = r or { return error('Parsing bug - <<>>.') } 
+						l.shift()
+						break 
+					}
+					else {
+						r := match state {
+							.l_ang { ?Symbol( Symbol.l_angle ) }
+							.r_ang { ?Symbol( Symbol.r_angle ) }
+							else { none }
+						}
+						token.tag = r or { return error('Parsing bug - <> normal.') }
+						break
+					}
+				}
+			}
+			.bang, .eq, .asterisk, .slash, .plus, .minus, .mod, .caret {
 				match c {
 					`=` { 
 						r := match state {
@@ -152,8 +185,6 @@ fn  (mut l Lexer) consume() !Token {
 							.minus { ?Symbol( Symbol.min_eq ) }
 							.mod { ?Symbol( Symbol.mod_eq ) }
 							.caret { ?Symbol( Symbol.xor_eq ) }
-							.l_ang { ?Symbol( Symbol.leq ) }
-							.r_ang { ?Symbol( Symbol.geq ) }
 							else { none }
 						}
 						token.tag = r or { return error('Parsing bug - eq.') } 
@@ -170,8 +201,6 @@ fn  (mut l Lexer) consume() !Token {
 							.minus { ?Symbol( Symbol.minus ) }
 							.mod { ?Symbol( Symbol.percent ) }
 							.caret { ?Symbol( Symbol.caret ) }
-							.l_ang { ?Symbol( Symbol.l_angle ) }
-							.r_ang { ?Symbol( Symbol.r_angle ) }
 							else { none }
 						}
 						token.tag = r or { return error('Parsing bug - eq normal.') }
@@ -250,7 +279,7 @@ fn  (mut l Lexer) consume() !Token {
 
 enum Symbol as u8 {
 	ident num // Atoms
-	plus minus slash asterisk percent caret pipe ampersand or_or and_and bang // Binary stuff, no equals
+	plus minus slash asterisk percent caret pipe ampersand or_or and_and bang shl shr // Binary stuff, no equals
 	eq eqeq neq ast_eq sla_eq plu_eq min_eq and_eq or_eq xor_eq mod_eq leq geq // Equals
 	eol colon double_colon dot comma l_bracket r_bracket l_paren r_paren l_angle r_angle r_brace l_brace // Particles
 	key_branch key_loop key_type key_interface key_fn key_return key_break key_else // Keywords
