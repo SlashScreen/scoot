@@ -2,7 +2,7 @@ module main
 
 struct Ast {
 pub mut:
-	tree []&Node
+	tree []Node
 }
 
 type Node = VarDef | BinOp | UnOp | Block | Assignment | IdentDef | IntDef | FloatDef | Branch | Ret | TypeDef
@@ -60,7 +60,15 @@ pub mut:
 struct Branch {
 pub mut:
 	conditions []ConditionBlock
-	else_block ?&Node
+	else_block &Node
+}
+
+fn (b Branch) get_else() ?&Node {
+	return if unsafe { b.else_block == nil } {
+		?&Node(none)
+	} else {
+		?&Node(b.else_block)
+	}
 }
 
 struct ConditionBlock {
@@ -71,7 +79,15 @@ pub:
 
 struct Ret {
 pub mut:
-	value ?&Node
+	value &Node
+}
+
+fn (r Ret) get_val() ?&Node {
+	return if unsafe { r.value == nil } {
+		?&Node(none)
+	} else {
+		?&Node(r.value)
+	}
 }
 
 struct FnDef {

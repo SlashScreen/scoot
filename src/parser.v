@@ -45,7 +45,7 @@ fn (mut p Parser) parse() !Ast {
 	for p.pos < p.input.len {
 		p.consume_toplevel()!
 		p.shift()
-	} 
+	}
 
 	return p.ast
 }
@@ -64,7 +64,7 @@ fn (mut p Parser) consume_ident() !&Node {
 	p.consume_token(.ident)!
 
 	n := IdentDef{name: t.context}
-	p.ast.tree << &n
+	p.ast.tree << n
 	return &n
 }
 
@@ -74,7 +74,7 @@ fn (mut p Parser) consume_number() !&Node {
 	p.consume_token(.num)!
 
 	n := IntDef{number: t.context.u16()}
-	p.ast.tree << &n
+	p.ast.tree << n
 	return &n
 }
 
@@ -138,7 +138,7 @@ fn (mut p Parser) consume_block() !&Node {
 	}
 
 	n := Block{exprs: exprs}
-	p.ast.tree << &n
+	p.ast.tree << n
 	return &n
 }
 
@@ -149,7 +149,7 @@ fn (mut p Parser) consume_assignment() !&Node {
 fn (mut p Parser) consume_branch() !&Node {
 	p.consume_token(.key_branch)!
 	mut conditions := []ConditionBlock{}
-	mut e_block := ?Node(none)
+	mut e_block := ?&Node(none)
 
 	if p.current()!.tag != .l_bracket {
 		e := p.consume_expression()!
@@ -163,7 +163,7 @@ fn (mut p Parser) consume_branch() !&Node {
 				.key_else {
 					p.shift()
 					b := p.consume_block()!
-					e_block = ?Node(b)
+					e_block = ?&Node(b)
 				}
 				else {
 					e := p.consume_expression()!
@@ -171,26 +171,26 @@ fn (mut p Parser) consume_branch() !&Node {
 					conditions << ConditionBlock{condition:e, block:b}
 				}
 			}
-			
+
 		}
 	}
 
 	p.consume_token(.r_bracket)!
 	p.consume_token(.eol)!
 
-	n := Branch{conditions:conditions, else_block:e_block}
-	p.ast.tree << &n
+	n := Branch{conditions:conditions, else_block:unsafe {e_block or {nil}}}
+	p.ast.tree << n
 	return &n
 }
 
 fn (mut p Parser) consume_return() !&Node {
 	p.consume_token(.key_return)!
 	e := if p.current()!.tag != .eol {
-		?Node(p.consume_expression()!)
-	} else { ?Node(none) }
+		?&Node(p.consume_expression()!)
+	} else { ?&Node(none) }
 
-	n := Ret{ value: e }
-	p.ast.tree << &n
+	n := Ret{ value: unsafe{ e or { nil } } }
+	p.ast.tree << n
 	return &n
 }
 
@@ -240,12 +240,12 @@ fn (mut p Parser) consume_var(constant bool) !&Node {
 	}
 	type_name := p.consume_ident()!
 	p.consume_token(.eq)!
-	n := VarDef { 
+	n := VarDef {
 		name: name
 		type_def: type_name
 		declaration: p.consume_expression()!
 		is_const: constant
 	}
-	p.ast.tree << &n
+	p.ast.tree << n
 	return &n
 }
