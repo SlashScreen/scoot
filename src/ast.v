@@ -5,6 +5,11 @@ pub mut:
 	tree []Node
 }
 
+fn (mut ast Ast) push_node(n Node) usize {
+	ast.tree << n
+	return usize(ast.tree.len - 1)
+}
+
 type Node = VarDef | BinOp | UnOp | Block | Assignment | IdentDef | IntDef | FloatDef | Branch | Ret | TypeDef
 
 struct IdentDef {
@@ -29,16 +34,16 @@ pub:
 
 struct VarDef {
 pub:
-	name &Node
-	type_def &Node
-	declaration &Node
+	name usize
+	type_def usize
+	declaration usize
 	is_const bool
 }
 
 struct BinOp {
 pub:
-	lhs &Node
-	rhs &Node
+	lhs usize
+	rhs usize
 	op BinOperation
 }
 
@@ -48,60 +53,44 @@ struct Assignment {
 
 struct UnOp {
 pub:
-	rhs &Node
+	rhs usize
 	op UnOperation
 }
 
 struct Block {
 pub mut:
-	exprs []&Node
+	exprs []usize
 }
 
 struct Branch {
 pub mut:
 	conditions []ConditionBlock
-	else_block &Node
-}
-
-fn (b Branch) get_else() ?&Node {
-	return if unsafe { b.else_block == nil } {
-		?&Node(none)
-	} else {
-		?&Node(b.else_block)
-	}
+	else_block ?usize
 }
 
 struct ConditionBlock {
 pub:
-	condition &Node
-	block &Node
+	condition usize
+	block usize
 }
 
 struct Ret {
 pub mut:
-	value &Node
-}
-
-fn (r Ret) get_val() ?&Node {
-	return if unsafe { r.value == nil } {
-		?&Node(none)
-	} else {
-		?&Node(r.value)
-	}
+	value ?usize
 }
 
 struct FnDef {
 pub mut:
-	name &Node
-	params ?[]&Node
-	ret_type ?&Node
-	block &Node
+	name usize
+	params ?[]usize
+	ret_type ?usize
+	block usize
 }
 
 struct FnCall {
 pub mut:
-	name &Node
-	params ?[]&Node
+	name usize
+	params ?[]usize
 }
 
 enum BinOperation {
@@ -114,5 +103,5 @@ enum BinOperation {
 enum UnOperation {
 	not
 	negate
-	pointer
+	pousizeer
 }

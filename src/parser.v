@@ -58,29 +58,27 @@ fn (mut p Parser) consume_token(tag Symbol) ! {
 	p.shift()
 }
 
-fn (mut p Parser) consume_ident() !&Node {
+fn (mut p Parser) consume_ident() !usize {
 	t := p.current()!
 
 	p.consume_token(.ident)!
 
 	n := IdentDef{name: t.context}
-	p.ast.tree << n
-	return &n
+	return p.ast.push_node(n)
 }
 
-fn (mut p Parser) consume_number() !&Node {
+fn (mut p Parser) consume_number() !usize {
 	t := p.current()!
 
 	p.consume_token(.num)!
 
 	n := IntDef{number: t.context.u16()}
-	p.ast.tree << n
-	return &n
+	return p.ast.push_node(n)
 }
 
 // * EXPRESSIONS
 
-fn (mut p Parser) consume_expression() !&Node {
+fn (mut p Parser) consume_expression() !usize {
 	match p.current()!.tag {
 		.ident {
 			l := p.lookahead(0)!
@@ -99,17 +97,17 @@ fn (mut p Parser) consume_expression() !&Node {
 	}
 }
 
-fn (mut p Parser) consume_algebraic() !&Node {
+fn (mut p Parser) consume_algebraic() !usize {
 	return error("Todo")
 }
 
-fn (mut p Parser) consume_func_call() !&Node {
+fn (mut p Parser) consume_func_call() !usize {
 	return error("Todo")
 }
 
 // * STATEMENTS
 
-fn (mut p Parser) consume_statement() !&Node {
+fn (mut p Parser) consume_statement() !usize {
 	t := p.current()!
 	match t.tag {
 		.ident {
@@ -128,28 +126,27 @@ fn (mut p Parser) consume_statement() !&Node {
 	}
 }
 
-fn (mut p Parser) consume_block() !&Node {
+fn (mut p Parser) consume_block() !usize {
 	p.consume_token(.l_bracket)!
 	p.consume_token(.eol)!
-	mut exprs := []&Node{}
+	mut exprs := []usize{}
 	for p.current()!.tag != .r_bracket {
 		if p.current()!.tag == .eol { continue }
 		exprs << p.consume_expression()!
 	}
 
 	n := Block{exprs: exprs}
-	p.ast.tree << n
-	return &n
+	return p.ast.push_node(n)
 }
 
-fn (mut p Parser) consume_assignment() !&Node {
+fn (mut p Parser) consume_assignment() !usize {
 	return error("Todo")
 }
 
-fn (mut p Parser) consume_branch() !&Node {
+fn (mut p Parser) consume_branch() !usize {
 	p.consume_token(.key_branch)!
 	mut conditions := []ConditionBlock{}
-	mut e_block := ?&Node(none)
+	mut e_block := ?usize(none)
 
 	if p.current()!.tag != .l_bracket {
 		e := p.consume_expression()!
@@ -163,7 +160,7 @@ fn (mut p Parser) consume_branch() !&Node {
 				.key_else {
 					p.shift()
 					b := p.consume_block()!
-					e_block = ?&Node(b)
+					e_block = ?usize(b)
 				}
 				else {
 					e := p.consume_expression()!
@@ -179,24 +176,22 @@ fn (mut p Parser) consume_branch() !&Node {
 	p.consume_token(.eol)!
 
 	n := Branch{conditions:conditions, else_block:unsafe {e_block or {nil}}}
-	p.ast.tree << n
-	return &n
+	return p.ast.push_node(n)
 }
 
-fn (mut p Parser) consume_return() !&Node {
+fn (mut p Parser) consume_return() !usize {
 	p.consume_token(.key_return)!
 	e := if p.current()!.tag != .eol {
-		?&Node(p.consume_expression()!)
-	} else { ?&Node(none) }
+		?usize(p.consume_expression()!)
+	} else { ?usize(none) }
 
 	n := Ret{ value: unsafe{ e or { nil } } }
-	p.ast.tree << n
-	return &n
+	return p.ast.push_node(n)
 }
 
 // * TOPLEVEL
 
-fn (mut p Parser) consume_toplevel() !&Node {
+fn (mut p Parser) consume_toplevel() !usize {
 	t := p.current()!
 	match t.tag {
 		.ident {
@@ -210,15 +205,15 @@ fn (mut p Parser) consume_toplevel() !&Node {
 	}
 }
 
-fn (mut p Parser) consume_fn() !&Node {
+fn (mut p Parser) consume_fn() !usize {
 	return error("Todo")
 }
 
-fn (mut p Parser) consume_type() !&Node {
+fn (mut p Parser) consume_type() !usize {
 	return error("Todo")
 }
 
-fn (mut p Parser) consume_definition() !&Node {
+fn (mut p Parser) consume_definition() !usize {
 	return match p.lookahead(0)!.tag {
 		.colon { p.consume_var(false)! }
 		.double_colon {
@@ -231,7 +226,7 @@ fn (mut p Parser) consume_definition() !&Node {
 	}
 }
 
-fn (mut p Parser) consume_var(constant bool) !&Node {
+fn (mut p Parser) consume_var(constant bool) !usize {
 	name := p.consume_ident()!
 	match p.current()!.tag {
 		.colon { p.consume_token(.colon)! }
@@ -246,6 +241,5 @@ fn (mut p Parser) consume_var(constant bool) !&Node {
 		declaration: p.consume_expression()!
 		is_const: constant
 	}
-	p.ast.tree << n
-	return &n
+	return p.ast.push_node(n)
 }
