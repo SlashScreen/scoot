@@ -10,7 +10,19 @@ fn (mut ast Ast) push_node(n Node) usize {
 	return usize(ast.tree.len - 1)
 }
 
-type Node = VarDef | BinOp | UnOp | Block | Assignment | IdentDef | IntDef | FloatDef | Branch | Ret | TypeDef
+type Node = 
+	VarDef | 
+	BinOp | 
+	UnOp | 
+	Block | 
+	Assignment | 
+	IdentDef | 
+	IntDef | 
+	FloatDef | 
+	Branch | 
+	Ret | 
+	TypeDef | 
+	ParamInfo
 
 struct IdentDef {
 pub:
@@ -38,6 +50,12 @@ pub:
 	type_def usize
 	declaration usize
 	is_const bool
+}
+
+struct ParamInfo {
+pub:
+	name usize
+	type_def usize
 }
 
 struct BinOp {

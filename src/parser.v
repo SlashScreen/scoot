@@ -124,9 +124,36 @@ fn tag_to_op(tag Symbol) ?BinOperation {
 	}
 }
 
+fn (mut p Parser) consume_args_list() ![]uint {
+	output := []uint{}
+	for p.current()!.tag != .r_paren {
+		p.skip_eol()!
+		output << p.consume_expression()!
+		if p.current()!.tag != .r_paren() {
+			p.consume_token(.comma)! // comma delimited list
+		}
+	}
+	return output
+}
+
+fn (mut p Parser) consume_params_list() ![]uint {
+	output := []uint{}
+	for p.current()!.tag != .r_paren {
+		p.skip_eol()!
+		output << p.ast.push_node(ParamInfo{
+			name: p.consume_ident()!
+			type_def: p.consume_ident()!
+		})
+		if p.current()!.tag != .r_paren() {
+			p.consume_token(.comma)! // comma delimited list
+		}
+	}
+	return output
+}
+
 // * EXPRESSIONS
 
-fn (mut p Parser) consume_expression() !usize {
+fn (mut p Parser) consume_expression() !usize { // TODO: Rework
 	match p.current()!.tag {
 		.ident {
 			l := p.lookahead(0)!
@@ -179,7 +206,14 @@ fn (mut p Parser) consume_algebraic(lhs usize, min_prec int) !usize {
 }
 
 fn (mut p Parser) consume_func_call() !usize {
-	return error("Todo")
+	name := p.consume_ident()!
+	p.consume_ident(.l_paren)!
+	args := p.consume_args_list()!
+	p.consume_token(.r_paren)!
+	return p.ast.push_node(FnCall{
+		name: name
+		params: if args.len > 0 { ?[]usize(args) } else { ?[]usize(none) }
+	})
 }
 
 // * STATEMENTS
@@ -289,8 +323,27 @@ fn (mut p Parser) consume_toplevel() !usize {
 }
 
 fn (mut p Parser) consume_fn() !usize {
+	name := !p.consume_ident()!
+	p.consume_token(.double_colon)!
 	p.consume_token(.key_fn)!
-	return error("Todo")
+	p.consume_token(.l_paren)!
+	params := p.consume_params_list()!
+	p.consume_token(.r_paren)!
+	ret_type := if p.current()!.tag == .ident {
+		?usize(p.consume_ident()!)
+	} else if p.current()!.tag != .l_bracket {
+		return error("Expected type name as return type")
+	} else {
+		?usize(none)
+	}
+	block := p.consume_block()!
+
+	return p.ast.push_node(FnDef{
+		name: name
+		params: if params.len > 0 { ?[]usize(params) } else { ?[]usize(none) }
+		ret_type: ret_type
+		block: block
+	})
 }
 
 fn (mut p Parser) consume_type() !usize {
