@@ -93,7 +93,35 @@ fn precedence(tag Symbol) int {
 }
 
 fn tag_to_op(tag Symbol) ?BinOperation {
-	
+	return match tag {
+		.plus { ?BinOperation(.add) }
+		.minus { ?BinOperation(.subtract) }
+		.asterisk { ?BinOperation(.multiply) }
+		.slash { ?BinOperation(.divide) }
+		.percent { ?BinOperation(.mod) }
+		.and_and { ?BinOperation(.and_op) }
+		.or_or { ?BinOperation(.or_op) }
+		.eqeq { ?BinOperation(.eq) }
+		.neq { ?BinOperation(.neq) }
+		.leq { ?BinOperation(.leq) }
+		.geq { ?BinOperation(.geq) }
+		.shl { ?BinOperation(.bit_sft_l) }
+		.shr { ?BinOperation(.bit_sft_r) }
+		.pipe { ?BinOperation(.bit_or) }
+		.ampersand { ?BinOperation(.bit_and) }
+		.caret { ?BinOperation(.bit_xor) }
+		.bang { ?BinOperation(.bit_not) }
+		.eq { ?BinOperation(.assign) }
+		.plu_eq { ?BinOperation(.plus_as) }
+		.min_eq { ?BinOperation(.min_as) }
+		.sla_eq { ?BinOperation(.div_as) }
+		.ast_eq { ?BinOperation(.mul_as) }
+		.mod_eq { ?BinOperation(.mod_as) }
+		.and_eq { ?BinOperation(.and_as) }
+		.or_eq { ?BinOperation(.or_as) }
+		.xor_eq { ?BinOperation(.xor_as) }
+		else { ?BinOperation(none) }
+	}
 }
 
 // * EXPRESSIONS
@@ -102,7 +130,7 @@ fn (mut p Parser) consume_expression() !usize {
 	match p.current()!.tag {
 		.ident {
 			l := p.lookahead(0)!
-			if is_symbol_operator(l.tag) { return p.consume_algebraic() }
+			if is_symbol_operator(l.tag) { return p.consume_algebraic(p.consume_atom()!, 0)! }
 			else if l.tag == .eol { return p.consume_ident() }
 			else {
 				return error("Unexpected token.")
@@ -118,7 +146,11 @@ fn (mut p Parser) consume_expression() !usize {
 }
 
 fn (mut p Parser) consume_atom() !usize {
-	return error("Todo")
+	return match p.current()!.tag {
+		.ident { p.consume_ident()! }
+		.num { p.consume_number()! }
+		else { error("Expected ident or number literal") }
+	}
 }
 
 fn (mut p Parser) consume_algebraic(lhs usize, min_prec int) !usize {
@@ -143,7 +175,7 @@ fn (mut p Parser) consume_algebraic(lhs usize, min_prec int) !usize {
 		l_rhs = rhs
 	}
 
-	return error("Todo")
+	return p.ast.push_node(BinOp{lhs:lhs, rhs:l_rhs, op:tag_to_op(la_tok.tag) or { return error("Unknown operator") }})
 }
 
 fn (mut p Parser) consume_func_call() !usize {

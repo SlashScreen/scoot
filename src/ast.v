@@ -97,7 +97,7 @@ enum BinOperation {
 	add subtract multiply divide mod // Arithmetic
 	and_op or_op eq neq leq geq // Comparison
 	bit_sft_l bit_sft_r bit_or bit_and bit_xor bit_not // Bitwise
-	assign plus_as min_as div_as mul_as mod_as // Assignment
+	assign plus_as min_as div_as mul_as mod_as or_as and_as xor_as // Assignment
 }
 
 enum UnOperation {
