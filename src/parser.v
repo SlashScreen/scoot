@@ -11,6 +11,12 @@ fn (mut p Parser) shift() {
 	p.pos += 1
 }
 
+fn (mut p Parser) skip_eol() ! {
+	for p.current()!.tag == .eol {
+		p.consume_token(.eol)!
+	}
+}
+
 fn (p Parser) lookahead(index usize) !Token {
 	if p.pos >= p.input.len {
 		return error("Reached EOF unexpectedly.")
@@ -76,6 +82,20 @@ fn (mut p Parser) consume_number() !usize {
 	return p.ast.push_node(n)
 }
 
+fn precedence(tag Symbol) int {
+	return match tag {
+		.eqeq, .geq, .leq, .neq { 0 }
+		.and_and, .or_or, .percent { 10 }
+		.plus, .minus { 20 }
+		.caret, .pipe, .ampersand, .bang, .shl, .shr, .slash, .asterisk { 50 }
+		else { 0 }
+	}
+}
+
+fn tag_to_op(tag Symbol) ?BinOperation {
+	
+}
+
 // * EXPRESSIONS
 
 fn (mut p Parser) consume_expression() !usize {
@@ -97,7 +117,32 @@ fn (mut p Parser) consume_expression() !usize {
 	}
 }
 
-fn (mut p Parser) consume_algebraic() !usize {
+fn (mut p Parser) consume_atom() !usize {
+	return error("Todo")
+}
+
+fn (mut p Parser) consume_algebraic(lhs usize, min_prec int) !usize {
+	mut l_tok := p.current()!
+	mut l_rhs := usize(0)
+	mut la_tok := p.current()!
+
+	for precedence(l_tok.tag) >= min_prec {
+		op := la_tok
+		p.shift()
+		mut rhs := p.consume_atom()!
+		la_tok = p.current()!
+
+		for precedence(l_tok.tag) >= precedence(op.tag) {
+			rhs = p.consume_algebraic(
+				rhs, 
+				precedence(op.tag) + if precedence(l_tok.tag) > precedence(op.tag) { 1 } else { 0 }
+			)!
+			la_tok = p.lookahead(0)!
+		}
+
+		l_rhs = rhs
+	}
+
 	return error("Todo")
 }
 
@@ -154,26 +199,32 @@ fn (mut p Parser) consume_branch() !usize {
 		conditions << ConditionBlock{condition:e, block:b}
 	} else {
 		p.consume_token(.l_bracket)!
-		p.consume_token(.eol)!
+		p.skip_eol()!
 		for p.current()!.tag != .r_bracket {
 			match p.current()!.tag {
-				.key_else {
-					p.shift()
-					b := p.consume_block()!
-					e_block = ?usize(b)
+				.ident {
+					if p.current()!.context == "_" {
+						p.shift()
+						b := p.consume_block()!
+						e_block = ?usize(b)
+					} else {
+						e := p.consume_expression()!
+						b := p.consume_block()!
+						conditions << ConditionBlock{condition:e, block:b}
+					}
 				}
+				.eol { continue }
 				else {
 					e := p.consume_expression()!
 					b := p.consume_block()!
 					conditions << ConditionBlock{condition:e, block:b}
 				}
 			}
-
 		}
 	}
 
 	p.consume_token(.r_bracket)!
-	p.consume_token(.eol)!
+	p.skip_eol()!
 
 	n := Branch{conditions:conditions, else_block:unsafe {e_block or {nil}}}
 	return p.ast.push_node(n)
@@ -206,6 +257,7 @@ fn (mut p Parser) consume_toplevel() !usize {
 }
 
 fn (mut p Parser) consume_fn() !usize {
+	p.consume_token(.key_fn)!
 	return error("Todo")
 }
 

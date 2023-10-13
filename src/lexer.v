@@ -107,7 +107,6 @@ fn  (mut l Lexer) consume() !Token {
 							"fn" { .key_fn }
 							"return" { .key_return }
 							"interface" { .key_interface }
-							"else" { .key_else }
 							else { .ident }
 						}
 						break
@@ -282,7 +281,7 @@ enum Symbol as u8 {
 	plus minus slash asterisk percent caret pipe ampersand or_or and_and bang shl shr // Binary stuff, no equals
 	eq eqeq neq ast_eq sla_eq plu_eq min_eq and_eq or_eq xor_eq mod_eq leq geq // Equals
 	eol colon double_colon dot comma l_bracket r_bracket l_paren r_paren l_angle r_angle r_brace l_brace // Particles
-	key_branch key_loop key_type key_interface key_fn key_return key_break key_else // Keywords
+	key_branch key_loop key_type key_interface key_fn key_return key_break // Keywords
 	hex_mode binary_mode // 0x, 0b
 	eof
 }
