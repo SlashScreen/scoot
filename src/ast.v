@@ -111,6 +111,13 @@ pub mut:
 	params ?[]usize
 }
 
+struct TypeDef {
+pub mut:
+    interfaces []usize
+    members    map[string]usize
+	is_interface bool
+}
+
 enum BinOperation {
 	add subtract multiply divide mod // Arithmetic
 	and_op or_op eq neq leq geq // Comparison

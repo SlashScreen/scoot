@@ -251,7 +251,15 @@ fn (mut p Parser) consume_block() !usize {
 }
 
 fn (mut p Parser) consume_assignment() !usize {
-	return error("Todo")
+	name := p.consume_ident()!
+	op := tag_to_op(p.current()!) or { return error("Expected assignment operation.") }
+	p.shift()!
+	expr := p.consume_expression()!
+	return p.ast.push_node(Assignment{
+		lhs: name,
+		rhs: expr
+		op: op
+	})
 }
 
 fn (mut p Parser) consume_branch() !usize {
@@ -347,7 +355,34 @@ fn (mut p Parser) consume_fn() !usize {
 }
 
 fn (mut p Parser) consume_type() !usize {
-	return error("Todo")
+	is_interface := p.current()!.tag == .key_interface
+	match p.current()!.tag {
+		.key_type, .key_interface { p.shift()! }
+		else { return error("Compiler error. This should not happen.") }
+	}
+	name := p.consume_ident()!
+	implements := []usize{}
+	if p.current()!.tag == .colon {
+		p.shift()!
+		for p.current()!.tag != l_bracket {
+			p.skip_eol()!
+			implements << p.consume_ident()!
+		}
+	}
+
+	p.consume_token(.l_bracket)
+	members := []usize
+	for p.current()!.tag != r_bracket {
+		p.skip_eol()!
+		member := if p.lookahead(2)!.tag == .key_fn { p.consume_fn()! }
+		else { p.consume_var()! }
+	}
+
+	return p.ast.push_node(TypeDef{
+		interfaces: implements
+		members: members
+		is_interface: is_interface
+	})
 }
 
 fn (mut p Parser) consume_definition() !usize {
