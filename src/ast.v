@@ -5,6 +5,12 @@ pub mut:
 	tree []Node
 }
 
+fn Ast.new() Ast {
+	return Ast{
+		tree: []Node{}
+	}
+}
+
 fn (mut ast Ast) push_node(n Node) usize {
 	ast.tree << n
 	return usize(ast.tree.len - 1)
@@ -22,7 +28,9 @@ type Node =
 	Branch | 
 	Ret | 
 	TypeDef | 
-	ParamInfo
+	ParamInfo |
+	FnDef |
+	FnCall
 
 struct IdentDef {
 pub:
@@ -113,6 +121,7 @@ pub mut:
 
 struct TypeDef {
 pub mut:
+	name usize
     interfaces []usize
     members    map[string]usize
 	is_interface bool

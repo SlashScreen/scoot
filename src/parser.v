@@ -7,6 +7,14 @@ mut:
 	ast Ast
 }
 
+fn Parser.new(input []Token) Parser {
+	return Parser{
+		input: input
+		pos: 0
+		ast: Ast.new()
+		}
+}
+
 fn (mut p Parser) shift() {
 	p.pos += 1
 }
@@ -124,50 +132,77 @@ fn tag_to_op(tag Symbol) ?BinOperation {
 	}
 }
 
-fn (mut p Parser) consume_args_list() ![]uint {
-	output := []uint{}
+fn (mut p Parser) consume_args_list() ![]usize {
+	mut output := []usize{}
 	for p.current()!.tag != .r_paren {
 		p.skip_eol()!
 		output << p.consume_expression()!
-		if p.current()!.tag != .r_paren() {
+		if p.current()!.tag != .r_paren {
 			p.consume_token(.comma)! // comma delimited list
 		}
 	}
 	return output
 }
 
-fn (mut p Parser) consume_params_list() ![]uint {
-	output := []uint{}
+fn (mut p Parser) consume_params_list() ![]usize {
+	mut output := []usize{}
 	for p.current()!.tag != .r_paren {
 		p.skip_eol()!
 		output << p.ast.push_node(ParamInfo{
 			name: p.consume_ident()!
 			type_def: p.consume_ident()!
 		})
-		if p.current()!.tag != .r_paren() {
+		if p.current()!.tag != .r_paren {
 			p.consume_token(.comma)! // comma delimited list
 		}
 	}
 	return output
 }
 
-// * EXPRESSIONS
-
-fn (mut p Parser) consume_expression() !usize { // TODO: Rework
+fn (mut p Parser) consume_instruction() !usize {
 	match p.current()!.tag {
 		.ident {
 			l := p.lookahead(0)!
 			if is_symbol_operator(l.tag) { return p.consume_algebraic(p.consume_atom()!, 0)! }
 			else if l.tag == .eol { return p.consume_ident() }
-			else {
-				return error("Unexpected token.")
+			else if l.tag == .l_paren { return p.consume_func_call()! }
+			else if is_symbol_assignment(l.tag) { return p.consume_assignment()! }
+			else { 
+				match l.tag {
+					.colon, .double_colon { return p.consume_definition()! }
+					else { return error ("Unexpected token.") }
+				}
 			}
+		}
+		.num {
+			l := p.lookahead(0)!
+			if l.tag == .eol { return p.consume_number()! } // TODO: Floats
+			else { return error("Unexpected token.") }
+		}
+		.l_bracket { return p.consume_block()! }
+		.key_branch { return p.consume_branch() }
+		.key_type { return p.consume_return() }
+		else { return error("Unexpected token.") }
+	}
+}
+
+// * EXPRESSIONS
+
+fn (mut p Parser) consume_expression() !usize {
+	match p.current()!.tag {
+		.ident {
+			l := p.lookahead(0)!
+			if is_symbol_operator(l.tag) { return p.consume_algebraic(p.consume_atom()!, 0)! }
+			else if l.tag == .eol { return p.consume_ident() }
+			else if l.tag == .l_paren { return p.consume_func_call()! }
+			else { return error("Unexpected token.") }
 		}
 		.num {
 			l := p.lookahead(0)!
 			if l.tag == .eol { return p.consume_number() } // TODO: Floats
 			else { return error("Unexpected token.") }
 		}
+		.l_bracket { return p.consume_block()! }
 		else { return error("Unexpected token.") }
 	}
 }
@@ -207,7 +242,7 @@ fn (mut p Parser) consume_algebraic(lhs usize, min_prec int) !usize {
 
 fn (mut p Parser) consume_func_call() !usize {
 	name := p.consume_ident()!
-	p.consume_ident(.l_paren)!
+	p.consume_token(.l_paren)!
 	args := p.consume_args_list()!
 	p.consume_token(.r_paren)!
 	return p.ast.push_node(FnCall{
@@ -243,7 +278,7 @@ fn (mut p Parser) consume_block() !usize {
 	mut exprs := []usize{}
 	for p.current()!.tag != .r_bracket {
 		if p.current()!.tag == .eol { continue }
-		exprs << p.consume_expression()!
+		exprs << p.consume_instruction()!
 	}
 
 	n := Block{exprs: exprs}
@@ -252,8 +287,8 @@ fn (mut p Parser) consume_block() !usize {
 
 fn (mut p Parser) consume_assignment() !usize {
 	name := p.consume_ident()!
-	op := tag_to_op(p.current()!) or { return error("Expected assignment operation.") }
-	p.shift()!
+	op := tag_to_op(p.current()!.tag) or { return error("Expected assignment operation.") }
+	p.shift()
 	expr := p.consume_expression()!
 	return p.ast.push_node(Assignment{
 		lhs: name,
@@ -331,7 +366,7 @@ fn (mut p Parser) consume_toplevel() !usize {
 }
 
 fn (mut p Parser) consume_fn() !usize {
-	name := !p.consume_ident()!
+	name := p.consume_ident()!
 	p.consume_token(.double_colon)!
 	p.consume_token(.key_fn)!
 	p.consume_token(.l_paren)!
@@ -339,7 +374,7 @@ fn (mut p Parser) consume_fn() !usize {
 	p.consume_token(.r_paren)!
 	ret_type := if p.current()!.tag == .ident {
 		?usize(p.consume_ident()!)
-	} else if p.current()!.tag != .l_bracket {
+	} else if p.current()!.tag != .l_bracket { // Compiler error
 		return error("Expected type name as return type")
 	} else {
 		?usize(none)
@@ -355,30 +390,34 @@ fn (mut p Parser) consume_fn() !usize {
 }
 
 fn (mut p Parser) consume_type() !usize {
-	is_interface := p.current()!.tag == .key_interface
+	is_interface := (p.current()!.tag) == .key_interface
 	match p.current()!.tag {
-		.key_type, .key_interface { p.shift()! }
+		.key_type, .key_interface { p.shift() }
 		else { return error("Compiler error. This should not happen.") }
 	}
 	name := p.consume_ident()!
-	implements := []usize{}
-	if p.current()!.tag == .colon {
-		p.shift()!
-		for p.current()!.tag != l_bracket {
+	mut implements := []usize{}
+	if (p.current()!.tag) == .colon {
+		p.shift()
+		for (p.current()!.tag) != .l_bracket {
 			p.skip_eol()!
 			implements << p.consume_ident()!
 		}
 	}
 
-	p.consume_token(.l_bracket)
-	members := []usize
-	for p.current()!.tag != r_bracket {
+	p.consume_token(.l_bracket)!
+	mut members := map[string]usize{}
+	for (p.current()!.tag) != .r_bracket {
 		p.skip_eol()!
+		if (p.current()!.tag) != .ident { return error("Unexpected toplevel declaration") } 
+		member_name := p.current()!.context
 		member := if p.lookahead(2)!.tag == .key_fn { p.consume_fn()! }
-		else { p.consume_var()! }
+		else { p.consume_definition()! }
+		members[member_name] = member
 	}
 
 	return p.ast.push_node(TypeDef{
+		name: name
 		interfaces: implements
 		members: members
 		is_interface: is_interface
